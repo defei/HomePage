@@ -166,6 +166,11 @@ public class CoverService {
                                     processedTemplateHtml = bindNavigationDataToTemplate(template, program.getSid(),
                                         JsonUtils.fromJson(program.getDataJson(), NavigationComponent.class));
                                     break;
+                                case SLIDER:
+                                    processedTemplateHtml = bindSliderDataToTemplate(template,
+                                        program.getSid(), JsonUtils
+                                        .fromJson(program.getDataJson(), SliderComponent.class));
+                                    break;
                                 case SECKILL:
                                     processedTemplateHtml = bindSeckillDataToTemplate(template,
                                         program.getSid(),
@@ -252,6 +257,45 @@ public class CoverService {
                     .replaceAll(getHtmlDataSelector(sourceId, navigationComponent.getSid(),
                         SECONDARY_TEXT.getPlaceholder()), navigation.getSecondaryText() == null ? "" : navigation.getSecondaryText());
                 groupDataList.add(processedHtml);
+            }
+            element.after(StringUtils.join(groupDataList, ""));
+            element.remove();
+        }
+        return template.body().html();
+    }
+
+    private String bindSliderDataToTemplate(Document template, String sourceId,
+        SliderComponent sliderComponent) {
+
+        String placeHolderProcessedHtml = template.outerHtml()
+            .replaceAll(getHtmlDataSelector(sourceId, IMG_URL.getPlaceholder()), sliderComponent.getImgUrl());
+        placeHolderProcessedHtml = placeHolderProcessedHtml.replaceAll(getHtmlDataSelector(sourceId, LINK.getPlaceholder()),
+            sliderComponent.getLink());
+        template = Jsoup.parseBodyFragment(placeHolderProcessedHtml);
+        
+        List<String> groupDataList = newArrayList();
+        Elements
+            slideComponents = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),sourceId);
+        for (Element element : slideComponents) {
+            String htmlOfElementToRepeat = element.outerHtml();
+            for (SliderTemplateData sliderTemplateData : sliderComponent.getElements()) {
+                Document document = Jsoup.parseBodyFragment(htmlOfElementToRepeat);
+                Elements elements =
+                    findElementByAttributeKey(document, REPEAT_ELEMENT.getPlaceholder(),
+                        getHtmlDataSelector(sourceId, sliderComponent.getSid()));
+                for (Element subElement : elements) {
+                    String htmlOfSubelementToRepeat = subElement.outerHtml();
+                    List<String> subGroupDataList = newArrayList();
+                    for (HtmlImageAndLinkable htmlImageAndLinkable : sliderTemplateData
+                        .getElements()) {
+                        String processedHtml = htmlOfSubelementToRepeat.replaceAll(IMG_URL.getPlaceholder(),htmlImageAndLinkable.getImgUrl());
+                        processedHtml = processedHtml.replaceAll(LINK.getPlaceholder(), htmlImageAndLinkable.getLink());
+                        subGroupDataList.add(processedHtml);
+                    }
+                    subElement.after(StringUtils.join(subGroupDataList, ""));
+                    subElement.remove();
+                }
+                groupDataList.add(document.body().html());
             }
             element.after(StringUtils.join(groupDataList, ""));
             element.remove();

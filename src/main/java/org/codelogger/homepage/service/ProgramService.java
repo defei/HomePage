@@ -58,6 +58,50 @@ public class ProgramService {
         navigationComponentProgram.setDataJson(JsonUtils.toJson(navigationComponent));
         programs.add(navigationComponentProgram);
 
+
+        //slider component
+        ProgramRo sliderComponentProgram = new ProgramRo();
+        sliderComponentProgram.setSid("tslcp");
+        sliderComponentProgram.setType(ProgramDataType.SLIDER);
+        List<SliderTemplateData> sliderTemplateDataList = newArrayList();
+        for (int i = 0; i < 3; i++) {
+            SliderTemplateData sliderTemplateData = new SliderTemplateData();
+            List<CommonHtmlTemplateData> sliderElements = newArrayList();
+            for (int j = 0; j < MathUtils.randomInt(2,4); j++) {
+                sliderElements.add(
+                    newSliderTemplateData(j % 2 == 0 ? "http://1919.codelogger.org/images/home-wineadsS.png" : "http://1919.codelogger.org/images/ho-con-center .jpg", "#" + sliderComponentProgram.getSid() + j));
+            }
+            sliderTemplateData.setSid("std");
+            sliderTemplateData.setElements(sliderElements);
+            sliderTemplateDataList.add(sliderTemplateData);
+        }
+        SliderComponent sliderComponent = new SliderComponent();
+        sliderComponent.setSid("sc");
+        sliderComponent.setImgUrl("http://1919.codelogger.org/images/ho-con-center .jpg");
+        sliderComponent.setLink("sliderComponentLink");
+        sliderComponent.setElements(sliderTemplateDataList);
+        sliderComponentProgram.setDataJson(JsonUtils.toJson(sliderComponent));
+        programs.add(sliderComponentProgram);
+
+        //top component
+        ProgramRo mainSliderComponentProgram = new ProgramRo();
+        mainSliderComponentProgram.setSid("tmslcp");
+        mainSliderComponentProgram.setType(ProgramDataType.SLIDER);
+        List<SliderTemplateData> mailSliderTemplateDataList = newArrayList();
+        SliderTemplateData sliderTemplateData = new SliderTemplateData();
+        List<CommonHtmlTemplateData> sliderElements = newArrayList();
+        for (int j = 0; j < MathUtils.randomInt(2,6); j++) {
+            sliderElements.add(
+                newSliderTemplateData(j % 2 == 0 ? "http://1919.codelogger.org/images/home-banner1.png" : "http://1919.codelogger.org/images/home-banner2.png", "#" + mainSliderComponentProgram.getSid() + j));
+        }
+        sliderTemplateData.setElements(sliderElements);
+        mailSliderTemplateDataList.add(sliderTemplateData);
+        SliderComponent mainSliderComponent = new SliderComponent();
+        mainSliderComponent.setSid("sc");
+        mainSliderComponent.setElements(mailSliderTemplateDataList);
+        mainSliderComponentProgram.setDataJson(JsonUtils.toJson(mainSliderComponent));
+        programs.add(mainSliderComponentProgram);
+
         //秒杀
         ProgramRo secKillProgram = new ProgramRo();
         secKillProgram.setSid("tskp");
@@ -195,5 +239,12 @@ public class ProgramService {
         showcase.setSoldPercent(MathUtils.randomInt(100));
         showcase.setOrderIndex(orderIndex);
         return showcase;
+    }
+
+    private SliderTemplateData newSliderTemplateData(String imgUrl, String link){
+        SliderTemplateData sliderTemplateData = new SliderTemplateData();
+        sliderTemplateData.setImgUrl(imgUrl);
+        sliderTemplateData.setLink(link);
+        return sliderTemplateData;
     }
 }

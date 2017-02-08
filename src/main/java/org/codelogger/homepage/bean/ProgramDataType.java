@@ -8,6 +8,7 @@ public enum ProgramDataType {
     HTML,
     SEARCH_COMPONENT,
     SEARCH_CATEGORY_COMPONENT,
+    SLIDER,
     NAVIGATION,
     SECKILL,
     CATEGORY_COMPONENT

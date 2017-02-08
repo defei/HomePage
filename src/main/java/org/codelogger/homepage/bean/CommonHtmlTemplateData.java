@@ -3,7 +3,8 @@ package org.codelogger.homepage.bean;
 /**
  * Created by defei on 2/6/17.
  */
-public class CommonHtmlTemplateData implements HtmlTemplateSelectable, HtmlImageAndLink, HtmlTextAndLink {
+public class CommonHtmlTemplateData implements HtmlTemplateSelectable, HtmlImageAndLinkable,
+    HtmlTextAndLinkable {
 
     /**
      * 选择器id
