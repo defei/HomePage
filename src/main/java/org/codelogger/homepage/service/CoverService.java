@@ -10,7 +10,9 @@ import org.codelogger.homepage.bean.*;
 import org.codelogger.homepage.dao.CoverRedisDao;
 import org.codelogger.homepage.utils.UnicodeEntityUtils;
 import org.codelogger.homepage.vo.CoverReqVo;
+import org.codelogger.homepage.vo.CoverTemplateData;
 import org.codelogger.utils.ArrayUtils;
+import org.codelogger.utils.CollectionUtils;
 import org.codelogger.utils.exceptions.HttpException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -29,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
 import static java.lang.String.format;
+import static org.apache.commons.lang3.StringUtils.contains;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.codelogger.homepage.bean.ProgramDataPlaceholder.*;
@@ -53,6 +56,8 @@ public class CoverService {
     public static final String SELECTOR_JOIN_SYMBOL = ".";
 
     @Autowired private CoverRedisDao coverRedisDao;
+
+    @Autowired private CoverDataProvider coverDataProvider;
 
     @Autowired private ProgramService programService;
 
@@ -96,7 +101,7 @@ public class CoverService {
         CoverClientType coverClientType, String picHost) {
         Cover coverRoByCityIdAndPosition =
             getCoverByCityIdAndPosition(coverReqVo, coverClientType);
-        return getHomePageHtmlContentByCover(coverRoByCityIdAndPosition, picHost, true);
+        return getHomePageHtmlContentByCover(coverRoByCityIdAndPosition, picHost, false);
     }
 
     public String getBodyHtmlContentByCityIdAndPosition(CoverReqVo coverReqVo,
@@ -143,56 +148,20 @@ public class CoverService {
     private String renderTemplate(String picHost, Cover coverRoByCityIdAndPosition,
         String htmlContent) {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        List<ProgramRo> programs =
-            programService.getProgramsByCoverId(coverRoByCityIdAndPosition.getId());
-        if (isNotEmpty(programs)) {
-            List<String> htmlElements = newArrayList();
-            for (ProgramRo program : programs) {
-                try {
-                    if (program != null && Objects
-                        .equals(program.getStatus(), CommonStatus.ENABLE)) {
-                        if (Objects.equals(program.getType(), ProgramDataType.HTML)) {
-                            htmlElements.add(program.getHtml());
-                        } else {
-                            String processedTemplateHtml = null;
-                            Document template = Jsoup.parseBodyFragment(htmlContent);
-                            logger.debug("Render {}[{}]", program.getType(), program.getSid());
-                            switch (program.getType()){
-                                case SEARCH_COMPONENT:
-                                    processedTemplateHtml =
-                                        bindSearchDataToTemplate(template, program.getSid(), JsonUtils.fromJson(program.getDataJson(), SearchComponent.class));
-                                    break;
-                                case NAVIGATION:
-                                    processedTemplateHtml = bindNavigationDataToTemplate(template, program.getSid(),
-                                        JsonUtils.fromJson(program.getDataJson(), NavigationComponent.class));
-                                    break;
-                                case SLIDER:
-                                    processedTemplateHtml = bindSliderDataToTemplate(template,
-                                        program.getSid(), JsonUtils
-                                        .fromJson(program.getDataJson(), SliderComponent.class));
-                                    break;
-                                case SECKILL:
-                                    processedTemplateHtml = bindSeckillDataToTemplate(template,
-                                        program.getSid(),
-                                        JsonUtils.fromJson(program.getDataJson(), SecKill.class));
-                                    break;
-                                case CATEGORY_COMPONENT:
-                                    processedTemplateHtml = bindCategoryDataToTemplate(template,
-                                        program.getSid(), JsonUtils
-                                        .fromJson(program.getDataJson(), CategoryComponent.class));
-                                    break;
-                            }
-                            if (isNotBlank(processedTemplateHtml)) {
-                                htmlElements.add(processedTemplateHtml);
-                                htmlContent = processedTemplateHtml;
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+        CoverTemplateData coverTemplateData =
+            coverDataProvider.getCoverTemplateData(coverRoByCityIdAndPosition.getId());
+
+        if (coverTemplateData.hasChildren()) {
+            Document template = Jsoup.parseBodyFragment(htmlContent);
+            Elements elementsOfNeedToBindSource =
+                template.getElementsByAttribute(DATA_SOURCE.getPlaceholder());
+            if(ArrayUtils.isNotEmpty(elementsOfNeedToBindSource)){
+                for (Element elementOfNeedToBindSource : elementsOfNeedToBindSource) {
+                    processSourceElement(elementOfNeedToBindSource, coverTemplateData.getChild(elementOfNeedToBindSource.attr(DATA_SOURCE.getPlaceholder())));
                 }
+
             }
-//            htmlContent = StringUtils.substringBefore(htmlContent, "<body>") + "<body>" + CollectionUtils.join(htmlElements, "") + "</body>" + StringUtils.substringAfter(htmlContent, "</body>");
+            htmlContent = template.body().outerHtml();
         }
 
         long milliseconds = stopwatch.elapsed(TimeUnit.MILLISECONDS);
@@ -202,6 +171,233 @@ public class CoverService {
         return htmlContent;
     }
 
+    private void processSourceElement(Element elementOfNeedToBindSource, CoverTemplateData coverTemplateData){
+        try {
+            if(elementOfNeedToBindSource == null || coverTemplateData == null){
+                return;
+            }
+            processRepeatElement(elementOfNeedToBindSource, coverTemplateData);
+            bindFieldData(elementOfNeedToBindSource, coverTemplateData);
+            String outerHtml = bindData(elementOfNeedToBindSource, coverTemplateData);
+            if(elementOfNeedToBindSource.parent() != null) {
+                elementOfNeedToBindSource.before(outerHtml);
+                elementOfNeedToBindSource.remove();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void processRepeatElement(Element elementOfNeedToBindSource, CoverTemplateData coverTemplateData){
+
+        List<CoverTemplateData> dataSourcesOfCurrentRepeat = coverTemplateData.getElements();
+        if(ArrayUtils.isEmpty(dataSourcesOfCurrentRepeat)) return;
+        Elements elementsOfNeedToRepeat = findDirectChildrenByAttr(elementOfNeedToBindSource,
+            REPEAT_ELEMENT.getPlaceholder());
+        if(CollectionUtils.isEmpty(elementsOfNeedToRepeat)) {
+            if(elementOfNeedToBindSource != null && elementOfNeedToBindSource.hasAttr(REPEAT_ELEMENT.getPlaceholder())){
+                doRepeat(elementOfNeedToBindSource, coverTemplateData);
+                return;
+            }
+        }
+        for (Element elementOfNeedToRepeat : elementsOfNeedToRepeat) {
+            List<String> dataSelectors = getDataSelectors(elementOfNeedToRepeat);
+            CoverTemplateData sourceOfCurrentRepeat = coverTemplateData.getChild(dataSelectors);
+            if(CollectionUtils.isEmpty(sourceOfCurrentRepeat.getElements())) continue;
+            //为当前需要重复的元素绑定数据
+            for (CoverTemplateData dataSource : sourceOfCurrentRepeat.getElements()) {
+                //克隆当前需要重复的元素
+                Element cloneOfElementOfNeedToRepeat = elementOfNeedToRepeat.clone();
+                Elements subRepeatElements = findDirectChildrenByAttr(cloneOfElementOfNeedToRepeat,
+                    REPEAT_ELEMENT.getPlaceholder());
+                if(ArrayUtils.isNotEmpty(subRepeatElements)) {
+                    for (Element subRepeatElement : subRepeatElements) {
+                        if (!cloneOfElementOfNeedToRepeat.equals(subRepeatElement)) {
+                            CoverTemplateData dataSourceOfSubElement = dataSource.getChild(getDataSelectors(subRepeatElement));
+                            processSourceElement(subRepeatElement, dataSourceOfSubElement);
+                        }
+                    }
+                }
+                bindFieldData(cloneOfElementOfNeedToRepeat, dataSource);
+                String htmlOfElementToRepeat = bindData(cloneOfElementOfNeedToRepeat, dataSource);
+                elementOfNeedToRepeat.before(htmlOfElementToRepeat);
+            }
+            elementOfNeedToRepeat.remove();
+        }
+    }
+
+    private void doRepeat(Element element, CoverTemplateData coverTemplateData){
+        if(element != null && coverTemplateData != null && CollectionUtils.isNotEmpty(coverTemplateData.getElements())){
+            element.removeAttr(REPEAT_ELEMENT.getPlaceholder());
+            for (CoverTemplateData templateData : coverTemplateData.getElements()) {
+                bindFieldData(element, templateData);
+                String htmlOfElementToRepeat = bindData(element, templateData);
+                element.before(htmlOfElementToRepeat);
+            }
+            element.remove();
+        }
+    }
+
+    private void bindFieldData(Element element, CoverTemplateData coverTemplateData){
+
+        Elements fieldElements = findDirectChildrenByAttr(element, DATA_FIELD.getPlaceholder());
+        for (Element fieldElement : fieldElements) {
+            Elements subFieldElements = findDirectChildrenByAttr(fieldElement, DATA_FIELD.getPlaceholder());
+            Element clone = fieldElement.clone();
+            CoverTemplateData fieldCoverTemplateData = coverTemplateData.getChild(getDataSelectors(clone));
+            for (Element subFieldElement : subFieldElements) {
+                bindFieldData(subFieldElement, fieldCoverTemplateData);
+            }
+            fieldElement.before(bindData(clone, fieldCoverTemplateData));
+            fieldElement.remove();
+        }
+
+    }
+
+    private String bindData(Element element, CoverTemplateData dataSource){
+        String htmlOfElementToRepeat = element.outerHtml();
+        if(dataSource == null){
+            return htmlOfElementToRepeat;
+        }
+        String processedHtml = replaceAllIfValueIsNull(htmlOfElementToRepeat, TEXT.getPlaceholder(), dataSource.getText());
+        processedHtml = replaceAllIfValueIsNull(processedHtml,SECONDARY_TEXT.getPlaceholder(), dataSource.getSecondaryText());
+        processedHtml = replaceAllIfValueIsNull(processedHtml,LINK.getPlaceholder(), dataSource.getLink());
+        processedHtml = replaceAllIfValueIsNull(processedHtml,STYLE_CLASS.getPlaceholder(), dataSource.getStyleClass());
+        processedHtml = replaceAllIfValueIsNull(processedHtml,IMG_URL.getPlaceholder(), dataSource.getImgUrl());
+        processedHtml = replaceAllIfValueIsNull(processedHtml,ORDER_INDEX.getPlaceholder(), dataSource.getOrderIndex());
+        processedHtml = replaceAllIfValueIsNull(processedHtml,Showcase_SalePrice.getPlaceholder(), convertToYuan(
+            dataSource.getSalePrice()));
+        processedHtml = replaceAllIfValueIsNull(processedHtml,Showcase_OriginPrice.getPlaceholder(), convertToYuan(
+            dataSource.getOriginPrice()));
+        return processedHtml;
+    }
+
+    private Elements findDirectChildrenByAttr(Element element, String attr){
+
+        Elements elements = element.getElementsByAttribute(attr);
+        if(ArrayUtils.isEmpty(elements)) return elements;
+        Iterator<Element> iterator = elements.iterator();
+        while (iterator.hasNext()){
+            Boolean isFirst = true;
+            Element repeatElement = iterator.next();
+            while (repeatElement != null){
+                if(isFirst && Objects.equals(element, repeatElement)){
+                    iterator.remove();
+                    break;
+                }
+                isFirst = false;
+                repeatElement = repeatElement.parent();
+                if(repeatElement == null || Objects.equals(repeatElement, element)){
+                    break;
+                }
+                if(repeatElement.hasAttr(attr)){
+                    iterator.remove();
+                    break;
+                }
+            }
+        }
+        return elements;
+    }
+
+    private Double convertToYuan(Integer price){
+        return price == null ? null : price / 100D;
+    }
+
+    private String replaceAllIfValueIsNull(String originStr, String select, Object value){
+
+        if(originStr == null || select == null || value == null){
+            return originStr;
+        } else {
+            return originStr.replaceAll(select, value.toString());
+        }
+    }
+
+    private List<String> getDataSelectors(Element element){
+
+        List<String> selectors = newArrayList();
+        Element elementNeedToFind = element;
+        Boolean repeatTagIsFound = false;
+        while (elementNeedToFind != null){
+            String repeatField = elementNeedToFind.attr(REPEAT_ELEMENT.getPlaceholder());
+            if(StringUtils.isNotBlank(repeatField)){
+                if(repeatTagIsFound){
+                    break;
+                }
+                selectors.add(0, repeatField);
+                repeatTagIsFound = true;
+            } else {
+                String dataField = elementNeedToFind.attr(DATA_FIELD.getPlaceholder());
+                if(StringUtils.isNotBlank(dataField)){
+                    selectors.add(0, dataField);
+                }
+            }
+            elementNeedToFind = elementNeedToFind.parent();
+        }
+        return selectors;
+    }
+
+//    private String renderTemplate1(String picHost, Cover coverRoByCityIdAndPosition,
+//        String htmlContent) {
+//        Stopwatch stopwatch = Stopwatch.createStarted();
+//        List<ProgramRo> programs =
+//            programService.getProgramsByCoverId(coverRoByCityIdAndPosition.getId());
+//        if (isNotEmpty(programs)) {
+//            List<String> htmlElements = newArrayList();
+//            for (ProgramRo program : programs) {
+//                try {
+//                    if (program != null && Objects
+//                        .equals(program.getStatus(), CommonStatus.ENABLE)) {
+//                        if (Objects.equals(program.getType(), ProgramDataType.HTML)) {
+//                            htmlElements.add(program.getHtml());
+//                        } else {
+//                            String processedTemplateHtml = null;
+//                            Document template = Jsoup.parseBodyFragment(htmlContent);
+//                            logger.debug("Render {}[{}]", program.getType(), program.getSid());
+//                            switch (program.getType()){
+//                                case SEARCH_COMPONENT:
+//                                    processedTemplateHtml =
+//                                        bindSearchDataToTemplate(template, program.getSid(), JsonUtils.fromJson(program.getDataJson(), SearchComponent.class));
+//                                    break;
+//                                case NAVIGATION:
+//                                    processedTemplateHtml = bindNavigationDataToTemplate(template, program.getSid(),
+//                                        JsonUtils.fromJson(program.getDataJson(), NavigationComponent.class));
+//                                    break;
+//                                case SLIDER:
+//                                    processedTemplateHtml = bindSliderDataToTemplate(template,
+//                                        program.getSid(), JsonUtils
+//                                        .fromJson(program.getDataJson(), SliderComponent.class));
+//                                    break;
+//                                case SECKILL:
+//                                    processedTemplateHtml = bindSeckillDataToTemplate(template,
+//                                        program.getSid(),
+//                                        JsonUtils.fromJson(program.getDataJson(), SecKill.class));
+//                                    break;
+//                                case CATEGORY_COMPONENT:
+//                                    processedTemplateHtml = bindCategoryDataToTemplate(template,
+//                                        program.getSid(), JsonUtils
+//                                        .fromJson(program.getDataJson(), CategoryComponent.class));
+//                                    break;
+//                            }
+//                            if (isNotBlank(processedTemplateHtml)) {
+//                                htmlElements.add(processedTemplateHtml);
+//                                htmlContent = processedTemplateHtml;
+//                            }
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+//            }
+////            htmlContent = StringUtils.substringBefore(htmlContent, "<body>") + "<body>" + CollectionUtils.join(htmlElements, "") + "</body>" + StringUtils.substringAfter(htmlContent, "</body>");
+//        }
+//
+//        long milliseconds = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+//        logger.debug(
+//            "==> render homepage used {} milli seconds for cover[{}, htmlContent length[{}] <==",
+//            milliseconds, coverRoByCityIdAndPosition.getId(), htmlContent.length());
+//        return htmlContent;
+//    }
+
     private String bindSearchDataToTemplate(Document template, String sourceId,
         SearchComponent searchComponent) {
         List<String> groupDataList = newArrayList();
@@ -210,7 +406,7 @@ public class CoverService {
             searchComponent.getSearchPlaceHolder());
         template = Jsoup.parseBodyFragment(placeHolderProcessedHtml);
         Elements
-            elementToRepeat = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+            elementToRepeat = findElementByAttributeValue(template, REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, searchComponent.getSid()));
         for (Element element : elementToRepeat) {
             String htmlOfElementToRepeat = element.outerHtml();
@@ -240,7 +436,7 @@ public class CoverService {
         NavigationComponent navigationComponent) {
         List<String> groupDataList = newArrayList();
         Elements
-            elementToRepeat = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+            elementToRepeat = findElementByAttributeValue(template, REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, navigationComponent.getSid()));
         for (Element element : elementToRepeat) {
             String htmlOfElementToRepeat = element.outerHtml();
@@ -275,13 +471,14 @@ public class CoverService {
         
         List<String> groupDataList = newArrayList();
         Elements
-            slideComponents = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),sourceId);
+            slideComponents = findElementByAttributeValue(template, REPEAT_ELEMENT.getPlaceholder(),
+            sourceId);
         for (Element element : slideComponents) {
             String htmlOfElementToRepeat = element.outerHtml();
             for (SliderTemplateData sliderTemplateData : sliderComponent.getElements()) {
                 Document document = Jsoup.parseBodyFragment(htmlOfElementToRepeat);
                 Elements elements =
-                    findElementByAttributeKey(document, REPEAT_ELEMENT.getPlaceholder(),
+                    findElementByAttributeValue(document, REPEAT_ELEMENT.getPlaceholder(),
                         getHtmlDataSelector(sourceId, sliderComponent.getSid()));
                 for (Element subElement : elements) {
                     String htmlOfSubelementToRepeat = subElement.outerHtml();
@@ -317,7 +514,7 @@ public class CoverService {
             .replaceAll(getHtmlDataSelector(sourceId, LINK.getPlaceholder()), secKill.getLink());
         template = Jsoup.parseBodyFragment(placeHolderProcessedHtml);
         Elements
-            elementToRepeat = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+            elementToRepeat = findElementByAttributeValue(template, REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, secKill.getSid()));
         for (Element element : elementToRepeat) {
             String htmlOfElementToRepeat = element.outerHtml();
@@ -355,7 +552,8 @@ public class CoverService {
         template = Jsoup.parseBodyFragment(placeHolderProcessedHtml);
 
         Elements
-            navigationElement = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+            navigationElement = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_NAVIGATION));
         for (Element element : navigationElement) {
             String htmlOfNavigation = element.outerHtml();
@@ -374,7 +572,8 @@ public class CoverService {
         }
 
 
-        Elements brandElement = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+        Elements brandElement = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_BRAND));
         for (Element element : brandElement) {
             String htmlOfBrand = element.outerHtml();
@@ -396,7 +595,8 @@ public class CoverService {
         }
 
 
-        Elements productElement = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+        Elements productElement = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_PRODUCT));
         for (Element element : productElement) {
             String htmlOfBrand = element.outerHtml();
@@ -427,7 +627,8 @@ public class CoverService {
         placeHolderProcessedHtml = template.outerHtml()
             .replaceAll(getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_TOP, TEXT.getPlaceholder()), categoryComponent.getTopProductShowcases().getText());
         template = Jsoup.parseBodyFragment(placeHolderProcessedHtml);
-        Elements topProductElements = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+        Elements topProductElements = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_TOP));
         for (Element element : topProductElements) {
             String htmlOfBrand = element.outerHtml();
@@ -447,7 +648,8 @@ public class CoverService {
         }
 
 
-        Elements footElements = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+        Elements footElements = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_FOOT));
         for (Element element : footElements) {
             String htmlOfBrand = element.outerHtml();
@@ -461,7 +663,8 @@ public class CoverService {
             element.remove();
         }
 
-        Elements historyElements = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+        Elements historyElements = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_HISTORY));
         for (Element element : historyElements) {
             String htmlOfBrand = element.outerHtml();
@@ -478,7 +681,8 @@ public class CoverService {
         placeHolderProcessedHtml = template.outerHtml()
             .replaceAll(getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_HISTORY, IMG_URL.getPlaceholder()), categoryComponent.getHistoryShowcase().getMainShowcase().getImgUrl());
         template = Jsoup.parseBodyFragment(placeHolderProcessedHtml);
-        Elements recommendElements = findElementByAttributeKey(template, REPEAT_ELEMENT.getPlaceholder(),
+        Elements recommendElements = findElementByAttributeValue(template,
+            REPEAT_ELEMENT.getPlaceholder(),
             getHtmlDataSelector(sourceId, CategoryComponent.SELECTOR_RECOMMEND));
         for (Element element : recommendElements) {
             String htmlOfBrand = element.outerHtml();
@@ -501,15 +705,31 @@ public class CoverService {
         return template.body().html();
     }
 
-    private Elements findElementByAttributeKey(Document document, String attributeKey, String id) {
+    private Elements findElementByAttribute(Element document, String attributeKey) {
 
         if (document != null) {
             Elements elements =
-                document.getElementsByAttributeValue(attributeKey, id);
+                document.getElementsByAttribute(attributeKey);
             if(elements != null && !elements.isEmpty()){
                 for (Element element : elements) {
                     element.removeAttr(attributeKey);
-                    element.removeAttr(id);
+                }
+                return elements;
+            }
+        }
+        return null;
+    }
+
+    private Elements findElementByAttributeValue(Document document, String attributeKey,
+        String attributeValue) {
+
+        if (document != null) {
+            Elements elements =
+                document.getElementsByAttributeValue(attributeKey, attributeValue);
+            if(elements != null && !elements.isEmpty()){
+                for (Element element : elements) {
+                    element.removeAttr(attributeKey);
+                    element.removeAttr(attributeValue);
                 }
                 return elements;
             }

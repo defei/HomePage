@@ -18,6 +18,7 @@ public class CoverRedisDao {
     public List<Cover> getAllCovers(CoverClientType coverClientType) {
         ArrayList<Cover> covers = newArrayList();
         Cover cover = new Cover();
+        cover.setId(1L);
         cover.setUrl("http://1919.codelogger.org/home/homewine.html");
         covers.add(cover);
         return covers;

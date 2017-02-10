@@ -6,6 +6,8 @@ package org.codelogger.homepage.bean;
 public enum ProgramDataPlaceholder {
 
 	/*全局约定*/
+	DATA_SOURCE("数据来源,请设置为attribute","hp-source"),
+	DATA_FIELD("子数据来源,请设置为attribute","hp-field"),
 	REPEAT_ELEMENT("需要重复的元素,请设置为attribute","hp-repeat"),
 	SHOP_FLAG("店铺标志占位符,请设置为attribute","gridy-shop-flag"),
 

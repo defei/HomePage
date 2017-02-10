@@ -37,6 +37,21 @@ public class CommonHtmlTemplateData implements HtmlTemplateSelectable, HtmlImage
     private String styleClass;
 
     /**
+     * 原价
+     */
+    private Integer originPrice;
+
+    /**
+     * 售价
+     */
+    private Integer salePrice;
+
+    /**
+     * 销售百分比
+     */
+    private Integer soldPercent;
+
+    /**
      * 排序
      */
     private Integer orderIndex;
@@ -163,6 +178,48 @@ public class CommonHtmlTemplateData implements HtmlTemplateSelectable, HtmlImage
      */
     public void setCommonStatus(CommonStatus commonStatus) {
         this.commonStatus = commonStatus;
+    }
+
+    /**
+     * {@linkplain Showcase#originPrice}
+     */
+    public Integer getOriginPrice() {
+        return originPrice;
+    }
+
+    /**
+     * {@linkplain Showcase#originPrice}
+     */
+    public void setOriginPrice(Integer originPrice) {
+        this.originPrice = originPrice;
+    }
+
+    /**
+     * {@linkplain Showcase#salePrice}
+     */
+    public Integer getSalePrice() {
+        return salePrice;
+    }
+
+    /**
+     * {@linkplain Showcase#salePrice}
+     */
+    public void setSalePrice(Integer salePrice) {
+        this.salePrice = salePrice;
+    }
+
+    /**
+     * {@linkplain Showcase#soldPercent}
+     */
+    public Integer getSoldPercent() {
+        return soldPercent;
+    }
+
+    /**
+     * {@linkplain Showcase#soldPercent}
+     */
+    public void setSoldPercent(Integer soldPercent) {
+        this.soldPercent = soldPercent;
     }
 
 }
