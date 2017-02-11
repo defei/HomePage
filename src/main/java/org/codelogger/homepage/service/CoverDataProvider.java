@@ -1,10 +1,9 @@
 package org.codelogger.homepage.service;
 
 import org.codelogger.core.utils.JsonUtils;
-import org.codelogger.homepage.bean.*;
+import org.codelogger.homepage.bean.ProgramRo;
 import org.codelogger.homepage.vo.CoverTemplateData;
-import org.codelogger.utils.MathUtils;
-import org.codelogger.utils.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,21 +18,19 @@ import static com.google.common.collect.Maps.newHashMap;
 @Service
 public class CoverDataProvider {
 
-    private static final Map<Long, CoverTemplateData> coverTemplateDataCache = newHashMap();
-
-    public static void push(Long coverId, String sourceKey, CoverTemplateData sourceData){
-
-        CoverTemplateData coverTemplateData = getCoverTemplateDataFromCache(coverId);
-        coverTemplateData.add(sourceKey, sourceData);
-    }
-
-    private static CoverTemplateData getCoverTemplateDataFromCache(Long coverId) {
+    private CoverTemplateData getCoverTemplateDataFromCache(Long coverId) {
         CoverTemplateData coverTemplateData = coverTemplateDataCache.get(coverId);
         if (coverTemplateData == null) {
             synchronized (CoverDataProvider.class){
                 coverTemplateData = coverTemplateDataCache.get(coverId);
                 if(coverTemplateData == null){
+                    //TODO 从数据库查询
                     coverTemplateData = new CoverTemplateData();
+                    List<ProgramRo> programsOfCover = programService.getProgramsByCoverId(coverId);
+                    for (ProgramRo programRo : programsOfCover) {
+                        String dataJson = programRo.getDataJson();
+                        coverTemplateData.add(programRo.getSourceId(), JsonUtils.fromJson(dataJson, CoverTemplateData.class));
+                    }
                     coverTemplateDataCache.put(coverId, coverTemplateData);
                 }
             }
@@ -41,7 +38,12 @@ public class CoverDataProvider {
         return coverTemplateData;
     }
 
-    public CoverTemplateData getCoverTemplateData(Long id) {
-        return getCoverTemplateDataFromCache(id);
+    public CoverTemplateData getCoverTemplateData(Long coverId) {
+        return getCoverTemplateDataFromCache(coverId);
     }
+
+    private static final Map<Long, CoverTemplateData> coverTemplateDataCache = newHashMap();
+
+    @Autowired
+    private ProgramService programService;
 }

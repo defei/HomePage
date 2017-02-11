@@ -1,8 +1,16 @@
-package org.codelogger.homepage.bean;
+package org.codelogger.homepage.model;
+
+import org.codelogger.homepage.bean.AppPlatform;
+import org.codelogger.homepage.bean.CommonStatus;
+import org.codelogger.homepage.bean.CoverClientType;
+import org.codelogger.homepage.bean.VersionCompareStrategy;
+
+import javax.persistence.Entity;
 
 /**
  * Created by defei on 2/5/17.
  */
+@Entity(name = "cover")
 public class Cover {
 
     private Long id;

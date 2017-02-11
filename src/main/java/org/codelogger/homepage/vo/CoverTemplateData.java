@@ -1,6 +1,8 @@
 package org.codelogger.homepage.vo;
 
 import org.codelogger.homepage.bean.CommonHtmlTemplateData;
+import org.codelogger.homepage.helper.MethodExecutor;
+import org.codelogger.homepage.helper.MethodExecutorMethodParam;
 import org.codelogger.utils.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +18,6 @@ import static com.google.common.collect.Maps.newHashMap;
  */
 public class CoverTemplateData extends CommonHtmlTemplateData{
 
-
     public CoverTemplateData getChild(String key){
 
         return children.get(key);
@@ -31,6 +32,10 @@ public class CoverTemplateData extends CommonHtmlTemplateData{
      * {@linkplain CoverTemplateData#elements}
      */
     public List<CoverTemplateData> getElements() {
+        if(elementsLoadType == ElementsLoadType.DYNAMIC){
+            return new MethodExecutor(methodExecutor, methodExecutorMethodParam).execute()
+                    .getElements();
+        }
         return elements;
     }
 
@@ -41,7 +46,7 @@ public class CoverTemplateData extends CommonHtmlTemplateData{
         this.elements = elements;
     }
 
-    public CoverTemplateData getChild(List<String> dataSelectors, Integer... level) {
+    public CoverTemplateData getChild(List<String> dataSelectors) {
         if(CollectionUtils.isEmpty(dataSelectors)){
             return null;
         }
@@ -67,13 +72,78 @@ public class CoverTemplateData extends CommonHtmlTemplateData{
         }
     }
 
+    /**
+     * {@linkplain CoverTemplateData#children}
+     */
+    public Map<String, CoverTemplateData> getChildren() {
+        return children;
+    }
+
+    /**
+     * {@linkplain CoverTemplateData#children}
+     */
+    public void setChildren(Map<String, CoverTemplateData> children) {
+        this.children = children;
+    }
+
+
     public Boolean hasChildren(){
         return !children.isEmpty();
     }
+
+    /**
+     * {@linkplain CoverTemplateData#methodExecutor}
+     */
+    public String getMethodExecutor() {
+        return methodExecutor;
+    }
+
+    /**
+     * {@linkplain CoverTemplateData#methodExecutor}
+     */
+    public void setMethodExecutor(String methodExecutor) {
+        elementsLoadType = ElementsLoadType.DYNAMIC;
+        this.methodExecutor = methodExecutor;
+    }
+
+    /**
+     * {@linkplain CoverTemplateData#methodExecutorMethodParam}
+     */
+    public MethodExecutorMethodParam getMethodExecutorMethodParam() {
+        return methodExecutorMethodParam;
+    }
+
+    /**
+     * {@linkplain CoverTemplateData#methodExecutorMethodParam}
+     */
+    public void setMethodExecutorMethodParam(MethodExecutorMethodParam methodExecutorMethodParam) {
+        this.methodExecutorMethodParam = methodExecutorMethodParam;
+    }
+
+    /**
+     * {@linkplain CoverTemplateData#elementsLoadType}
+     */
+    public ElementsLoadType getElementsLoadType() {
+        return elementsLoadType;
+    }
+
+    /**
+     * {@linkplain CoverTemplateData#elementsLoadType}
+     */
+    public void setElementsLoadType(ElementsLoadType elementsLoadType) {
+        this.elementsLoadType = elementsLoadType;
+    }
+
+    private MethodExecutorMethodParam methodExecutorMethodParam;
+
+    private String methodExecutor;
+
+    private ElementsLoadType elementsLoadType = ElementsLoadType.STATIC;
 
     private List<CoverTemplateData> elements = newArrayList();
 
     private Map<String, CoverTemplateData> children = newHashMap();
 
     private static final Logger logger = LoggerFactory.getLogger(CoverTemplateData.class);
+
 }

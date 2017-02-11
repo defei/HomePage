@@ -8,15 +8,15 @@ import java.util.Comparator;
  * 区域首页里的功能模块
  * Created by defei on 5/13/15.
  */
-public class ProgramRo implements Comparable<ProgramRo>, HtmlTemplateSelectable {
+public class ProgramRo implements Comparable<ProgramRo> {
 
     private static final long serialVersionUID = 1106021018539020040L;
 
     private String id;
 
-    private String sid;
-
     private String coverId;
+
+    private String sourceId;
 
     private ProgramDataType type;
 
@@ -59,26 +59,26 @@ public class ProgramRo implements Comparable<ProgramRo>, HtmlTemplateSelectable 
         this.id = id;
     }
 
-    /**
-     * {@linkplain ProgramRo#sid}
-     */
-    public String getSid() {
-        return sid;
-    }
-
-    /**
-     * {@linkplain ProgramRo#sid}
-     */
-    public void setSid(String sid) {
-        this.sid = sid;
-    }
-
     public String getCoverId() {
         return coverId;
     }
 
     public void setCoverId(String coverId) {
         this.coverId = coverId;
+    }
+
+    /**
+     * {@linkplain ProgramRo#sourceId}
+     */
+    public String getSourceId() {
+        return sourceId;
+    }
+
+    /**
+     * {@linkplain ProgramRo#sourceId}
+     */
+    public void setSourceId(String sourceId) {
+        this.sourceId = sourceId;
     }
 
     /**

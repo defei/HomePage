@@ -1,6 +1,6 @@
 package org.codelogger.homepage.dao;
 
-import org.codelogger.homepage.bean.Cover;
+import org.codelogger.homepage.model.Cover;
 import org.codelogger.homepage.bean.CoverClientType;
 import org.springframework.stereotype.Component;
 

@@ -181,45 +181,44 @@ public class CommonHtmlTemplateData implements HtmlTemplateSelectable, HtmlImage
     }
 
     /**
-     * {@linkplain Showcase#originPrice}
+     * {@linkplain CommonHtmlTemplateData#originPrice}
      */
     public Integer getOriginPrice() {
         return originPrice;
     }
 
     /**
-     * {@linkplain Showcase#originPrice}
+     * {@linkplain CommonHtmlTemplateData#originPrice}
      */
     public void setOriginPrice(Integer originPrice) {
         this.originPrice = originPrice;
     }
 
     /**
-     * {@linkplain Showcase#salePrice}
+     * {@linkplain CommonHtmlTemplateData#salePrice}
      */
     public Integer getSalePrice() {
         return salePrice;
     }
 
     /**
-     * {@linkplain Showcase#salePrice}
+     * {@linkplain CommonHtmlTemplateData#salePrice}
      */
     public void setSalePrice(Integer salePrice) {
         this.salePrice = salePrice;
     }
 
     /**
-     * {@linkplain Showcase#soldPercent}
+     * {@linkplain CommonHtmlTemplateData#soldPercent}
      */
     public Integer getSoldPercent() {
         return soldPercent;
     }
 
     /**
-     * {@linkplain Showcase#soldPercent}
+     * {@linkplain CommonHtmlTemplateData#soldPercent}
      */
     public void setSoldPercent(Integer soldPercent) {
         this.soldPercent = soldPercent;
     }
-
 }

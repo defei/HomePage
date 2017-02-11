@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -23,21 +22,21 @@ import static org.apache.commons.lang3.StringUtils.isNotBlank;
  */
 @Controller public class HomepageController {
 
-    @RequestMapping(value = {"/", "welcome"}, method = RequestMethod.GET)
+    @RequestMapping(value = {"/", "welcome"})
     public void forwardToHomePage(HttpServletRequest httpRequest, HttpServletResponse response) {
 
         CoverReqVo coverReqVo = new CoverReqVo();
         try {
             Stopwatch stopwatch = Stopwatch.createStarted();
             String homepageContent = coverService
-                .getHomePageHtmlContentByCityIdAndShopTypeId(coverReqVo, CoverClientType.WEB, null);
+                .getHomePageHtmlContentByCityIdAndShopTypeId(coverReqVo, CoverClientType.WEB);
             logger.debug("Get homepage from soa used {} milliseconds.",
                 stopwatch.elapsed(TimeUnit.MILLISECONDS));
             if (isNotBlank(homepageContent)) {
                 try {
                     response.setContentType("text/html");
                     response.setCharacterEncoding("utf-8");
-                    if(logger.isTraceEnabled()){
+                    if (logger.isTraceEnabled()) {
                         logger.trace(homepageContent);
                     }
                     response.getWriter().write(homepageContent);

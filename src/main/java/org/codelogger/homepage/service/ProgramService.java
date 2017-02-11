@@ -1,18 +1,23 @@
 package org.codelogger.homepage.service;
 
 import org.codelogger.core.utils.JsonUtils;
-import org.codelogger.homepage.bean.*;
+import org.codelogger.homepage.bean.ProgramRo;
+import org.codelogger.homepage.helper.MethodExecutor;
+import org.codelogger.homepage.helper.MethodExecutorMethodParam;
 import org.codelogger.homepage.vo.CoverTemplateData;
-import org.codelogger.utils.DateUtils;
+import org.codelogger.homepage.vo.CoverTemplateDataList;
 import org.codelogger.utils.MathUtils;
 import org.codelogger.utils.StringUtils;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
+import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Maps.newHashMap;
 
 /**
  * Created by defei on 2/5/17.
@@ -20,13 +25,37 @@ import static com.google.common.collect.Lists.newArrayList;
 @Service
 public class ProgramService {
 
-    @PostConstruct
+    private Long coverIdOfMock = 1L;
+
+    private Map<Long, List<ProgramRo>> coverIdToPrograms = newHashMap();
+
+    public List<ProgramRo> getProgramsByCoverId(Long coverId){
+
+        //TODO 此处为模拟数据，实际情况为从数据库查
+        if(Objects.equals(coverId, coverIdOfMock)){
+            setup();
+            return coverIdToPrograms.get(coverId);
+        } else {
+            return newArrayList();
+        }
+    }
+
+    private void addProgramToCover(ProgramRo program){
+
+        List<ProgramRo> programs = coverIdToPrograms.get(coverIdOfMock);
+        if(programs == null){
+            programs = newArrayList();
+            coverIdToPrograms.put(coverIdOfMock, programs);
+        }
+        programs.add(program);
+    }
+
     public void setup(){
 
         CoverTemplateData searchComponent = new CoverTemplateData();
         searchComponent.setText("搜索占位符");
         CoverTemplateData searchHotKeys = new CoverTemplateData();
-        List<CoverTemplateData> hotKeys = newArrayList();
+        CoverTemplateDataList hotKeys = new CoverTemplateDataList();
         for (int i = 0; i < 5; i++) {
             hotKeys.add(
                 newNavigation("热词" + StringUtils.getRandomString(MathUtils.randomInt(1, 10)) + i,
@@ -34,17 +63,18 @@ public class ProgramService {
         }
         searchHotKeys.setElements(hotKeys);
         searchComponent.add("hk", searchHotKeys);
-        CoverDataProvider.push(1L, "tscp", searchComponent);
+        ProgramRo programRo = new ProgramRo();
+        programRo.setSourceId("tscp");
+        programRo.setDataJson(JsonUtils.toJson(searchComponent));
+        addProgramToCover(programRo);
 
         /*分类楼层*/
         CoverTemplateData categoryComponentProgram = new CoverTemplateData();
-        CoverDataProvider.push(1L, "tccp", categoryComponentProgram);
-
         CoverTemplateData categoryComponentCover = new CoverTemplateData();
         categoryComponentProgram.add("cc", categoryComponentCover);
-        List<CoverTemplateData> categoryComponents = newArrayList();
+        CoverTemplateDataList categoryComponents = new CoverTemplateDataList();
         categoryComponentCover.setElements(categoryComponents);
-        for (int i = 0; i < 5; i++) {
+        for (Integer i = 0; i < 5; i++) {
             CoverTemplateData categoryComponent = new CoverTemplateData();
             categoryComponents.add(categoryComponent);
             String categoryName = "分类" + StringUtils.getRandomString(MathUtils.randomInt(2, 5)) + (i + 1);
@@ -56,7 +86,7 @@ public class ProgramService {
             //导航
             CoverTemplateData naCategoryComponent = new CoverTemplateData();
             categoryComponent.add("na", naCategoryComponent);
-            List<CoverTemplateData> categoryNavigations = newArrayList();
+            CoverTemplateDataList categoryNavigations = new CoverTemplateDataList();
             for (int j = 0; j < 5; j++) {
                 CoverTemplateData navigation =
                     newNavigation("导航" + StringUtils.getRandomString(MathUtils.randomInt(1,10)) + j, j % 3 == 0 ? "#e30b20" : "#fff", "#category" + i + "_Navigation" + j, j);
@@ -67,48 +97,41 @@ public class ProgramService {
             //品牌
             CoverTemplateData brCategoryComponent = new CoverTemplateData();
             categoryComponent.add("br", brCategoryComponent);
-            List<CoverTemplateData> brandShowcases = newArrayList();
+            CoverTemplateDataList brandShowcases = new CoverTemplateDataList();
             for (int j = 0; j < 8; j++) {
                 CoverTemplateData showcase =
-                    newShowcase("品牌" + StringUtils.getRandomString(MathUtils.randomInt(1,3)) + j, j % 2 ==0 ? "http://1919.codelogger.org/images/home-wineadsM.png" : "http://1919.codelogger.org/images/home-wineadsM02.png", "#category" + i + "_brandShowcases" + j, j);
+                    newShowcase("品牌" + StringUtils.getRandomString(MathUtils.randomInt(1,3)) + j, j % 2 ==0 ? "http://1919.codelogger.org/images/home-wineadsM.png" : "http://1919.codelogger.org/images/home-wineadsM02.png", "#category" + i + "_brandShowcases" + j);
                 brandShowcases.add(showcase);
             }
             brCategoryComponent.setElements(brandShowcases);
 
             //商品
             CoverTemplateData prCategoryComponent = new CoverTemplateData();
-            categoryComponent.add("pr", prCategoryComponent);
-            List<CoverTemplateData> productShowcases = newArrayList();
-            for (int j = 0; j < 8; j++) {
-                CoverTemplateData showcase =
-                    newShowcase("【店铺" + StringUtils.getRandomString(MathUtils.randomInt(4,10)) + j + "】", "商品" + StringUtils.getRandomString(MathUtils.randomInt(5,20)) + j, "http://1919.codelogger.org/images/home-goodB.png", "#category" + i + "_productShowcases" + j, j);
-                showcase.setStyleClass(MathUtils.randomInt(10) > 8 ? "ml-time19" : MathUtils.randomInt(10) > 5 ? "ml-time24" : "");
-                productShowcases.add(showcase);
+            List<String> productIds = newArrayList();
+            for (Long j = 0L; j < 8; j++) {
+                productIds.add(j.toString());
             }
-            prCategoryComponent.setElements(productShowcases);
+            prCategoryComponent.setMethodExecutor("productDetailListService");
+            prCategoryComponent.setMethodExecutorMethodParam(
+                new MethodExecutorMethodParam(i.toString(),productIds));
+            categoryComponent.add("pr", prCategoryComponent);
 
             //top
             CoverTemplateData topCategoryComponent = new CoverTemplateData();
             categoryComponent.add("top", topCategoryComponent);
             topCategoryComponent.setText(categoryName + " TOP10");
-            List<CoverTemplateData> productShowcasesOfTop = newArrayList();
-            for (int j = 0; j < 10; j++) {
-                CoverTemplateData showcase =
-                    newShowcase("【店铺" + StringUtils.getRandomString(MathUtils.randomInt(4,10)) + j + "】", "商品" + StringUtils.getRandomString(MathUtils.randomInt(5,20)) + j, "http://1919.codelogger.org/images/home-goodS.png", "#category" + i + "_topProduct" + j, j+1);
-                showcase.setStyleClass(j < 2 ? "r-toplist-act" : "");
-                productShowcasesOfTop.add(showcase);
-            }
+            String elementsProviderBean = "productTop10Service";
             CoverTemplateData productsOfTopCategoryComponent = new CoverTemplateData();
-            productsOfTopCategoryComponent.setElements(productShowcasesOfTop);
+            productsOfTopCategoryComponent.setMethodExecutor(elementsProviderBean);
+            productsOfTopCategoryComponent.setMethodExecutorMethodParam(new MethodExecutorMethodParam(i.toString(), null));
             topCategoryComponent.add("ss", productsOfTopCategoryComponent);
 
             //foot
             CoverTemplateData footCategoryComponent = new CoverTemplateData();
             categoryComponent.add("foot", footCategoryComponent);
-            List<CoverTemplateData> footShowcases = newArrayList();
+            CoverTemplateDataList footShowcases = new CoverTemplateDataList();
             for (int j = 0; j < 4; j++) {
-                CoverTemplateData showcase =
-                    newShowcase("【店铺" + StringUtils.getRandomString(MathUtils.randomInt(4,10)) + j + "】", "商品" + StringUtils.getRandomString(MathUtils.randomInt(5,20)) + j, "http://1919.codelogger.org/images/home-wineadsS.png", "#category" + i + "_footShowcases" + j, j);
+                CoverTemplateData showcase = newShowcase(null, "http://1919.codelogger.org/images/home-wineadsS.png", "#category" + i + "_footShowcases" + j);
                 showcase.setStyleClass(MathUtils.randomInt(10) > 8 ? "ml-time19" : MathUtils.randomInt(10) > 5 ? "ml-time24" : "");
                 footShowcases.add(showcase);
             }
@@ -118,10 +141,9 @@ public class ProgramService {
             CoverTemplateData historyCategoryComponent = new CoverTemplateData();
             categoryComponent.add("history", historyCategoryComponent);
             historyCategoryComponent.setImgUrl("http://1919.codelogger.org/images/home-wineadsL.png");
-            List<CoverTemplateData> secondaryShowcases = newArrayList();
+            CoverTemplateDataList secondaryShowcases = new CoverTemplateDataList();
             for (int j = 0; j < 3; j++) {
-                CoverTemplateData showcase =
-                    newShowcase("【店铺" + StringUtils.getRandomString(MathUtils.randomInt(4,10)) + j + "】", "商品" + StringUtils.getRandomString(MathUtils.randomInt(5,20)) + j, "http://1919.codelogger.org/images/home-wineadsB.png", "#category" + i + "_hisgoryShowCases" + j, j);
+                CoverTemplateData showcase = newShowcase("null", "http://1919.codelogger.org/images/home-wineadsB.png", "#category" + i + "_hisgoryShowCases" + j);
                 showcase.setStyleClass(MathUtils.randomInt(10) > 8 ? "ml-time19" : MathUtils.randomInt(10) > 5 ? "ml-time24" : "");
                 secondaryShowcases.add(showcase);
             }
@@ -131,16 +153,18 @@ public class ProgramService {
 
             //recommend
             CoverTemplateData recommendCategoryComponent = new CoverTemplateData();
-            categoryComponent.add("recommend", recommendCategoryComponent);
-            List<CoverTemplateData> recommendShowcases = newArrayList();
-            for (int j = 0; j < 12; j++) {
-                CoverTemplateData showcase =
-                    newShowcase("【店铺" + StringUtils.getRandomString(MathUtils.randomInt(4,10)) + j + "】", "商品" + StringUtils.getRandomString(MathUtils.randomInt(5,20)) + j, "http://1919.codelogger.org/images/home-goodM.png", "#category" + i + "_recommendShowcase" + j, j);
-                showcase.setStyleClass(MathUtils.randomInt(10) > 8 ? "ml-time19" : MathUtils.randomInt(10) > 5 ? "ml-time24" : "");
-                recommendShowcases.add(showcase);
+            productIds = newArrayList();
+            for (Long j = 0L; j < 12; j++) {
+                productIds.add(j.toString());
             }
-            recommendCategoryComponent.setElements(recommendShowcases);
+            recommendCategoryComponent.setMethodExecutor("productDetailListService");
+            recommendCategoryComponent.setMethodExecutorMethodParam(new MethodExecutorMethodParam(i.toString(), productIds));
+            categoryComponent.add("recommend", recommendCategoryComponent);
         }
+        ProgramRo categoryProgram = new ProgramRo();
+        categoryProgram.setSourceId("tccp");
+        categoryProgram.setDataJson(JsonUtils.toJson(categoryComponentProgram));
+        addProgramToCover(categoryProgram);
     }
 
     private CoverTemplateData newNavigation(String text, String styleClass, String link , Integer orderIndex){
@@ -152,20 +176,11 @@ public class ProgramService {
         return navigation;
     }
 
-    private CoverTemplateData newShowcase(String text, String imageUrl, String link, Integer orderIndex){
-        return newShowcase(text, null, imageUrl, link, orderIndex);
-    }
-
-    private CoverTemplateData newShowcase(String text, String secondaryText, String imageUrl, String link, Integer orderIndex){
+    private CoverTemplateData newShowcase(String text, String imageUrl, String link){
         CoverTemplateData showcase = new CoverTemplateData();
         showcase.setText(text);
-        showcase.setSecondaryText(secondaryText);
         showcase.setImgUrl(imageUrl);
         showcase.setLink(link);
-        showcase.setOriginPrice(MathUtils.randomInt(10000,99999));
-        showcase.setSalePrice((int)(showcase.getOriginPrice() * MathUtils.randomDouble()));
-        showcase.setSoldPercent(MathUtils.randomInt(100));
-        showcase.setOrderIndex(orderIndex);
         return showcase;
     }
 
